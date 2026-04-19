@@ -1,0 +1,12 @@
+RewriteEngine On
+
+# Let backend folder handle its own API rewrites
+RewriteRule ^backend/ - [L]
+
+# Serve existing files/directories directly
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# Frontend SPA fallback
+RewriteRule ^ index.html [L]
