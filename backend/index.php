@@ -30,6 +30,7 @@ require_once __DIR__ . '/controllers/BillingController.php';
 require_once __DIR__ . '/controllers/ReportController.php';
 require_once __DIR__ . '/controllers/SettingsController.php';
 require_once __DIR__ . '/controllers/GuestHouseController.php';
+require_once __DIR__ . '/controllers/PrintController.php';
 
 // ---- CORS ----
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
@@ -69,6 +70,7 @@ $billing = new BillingController();
 $reports = new ReportController();
 $sett    = new SettingsController();
 $gh      = new GuestHouseController();
+$print   = new PrintController();
 
 // ---- Router ----
 // Returns true if matched, false if not
@@ -172,6 +174,11 @@ try {
     if ($uri === '/reports/commission'    && $method === 'GET') { $reports->commission($req); }
     if ($uri === '/reports/payment-mode'  && $method === 'GET') { $reports->paymentMode($req); }
     if ($uri === '/reports/category-wise' && $method === 'GET') { $reports->categoryWise($req); }
+
+    // Print (direct thermal ESC/POS)
+    if ($uri === '/print/bill' && $method === 'POST') { $print->printBill($req); }
+    if ($uri === '/print/kot'  && $method === 'POST') { $print->printKOT($req); }
+    if ($uri === '/print/test' && $method === 'POST') { $print->testPrint($req); }
 
     // Settings
     if ($uri === '/settings' && $method === 'GET') { $sett->index($req); }

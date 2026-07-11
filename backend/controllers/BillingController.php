@@ -44,6 +44,8 @@ class BillingController
         }
 
         Database::begin();
+        $isGuestHouseUpdate = false;
+        $billNumber = '';
         try {
             // Recalculate fresh totals with the given discount
             $totals = Helper::calculateTotals(
@@ -53,59 +55,112 @@ class BillingController
                 $order['order_type'] === 'guest_house' ? (float)$order['commission_amount'] : null
             );
 
-            $tempBillNumber = Helper::generateBillNumber();
-
-            Database::run(
-                'INSERT INTO bills
-                 (bill_number, order_id, subtotal, discount_amount, tax_amount,
-                  commission_amount, grand_total, payment_mode, payment_status,
-                  paid_at, bill_notes, created_by)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [
-                    $tempBillNumber,
-                    $orderId,
-                    $totals['subtotal'],
-                    $totals['discount_amount'],
-                    $totals['tax_amount'],
-                    $totals['commission_amount'],
-                    $totals['grand_total'],
-                    $paymentMode,
-                    $paymentStatus,
-                    $paidAt,
-                    $req->bodyStr('bill_notes') ?: null,
-                    $payload['admin_id'],
-                ]
+            $existingBill = Database::row(
+                'SELECT id, bill_number FROM bills WHERE order_id = ?',
+                [$orderId]
             );
 
-            $billId = (int) Database::lastId();
-            $billNumber = Helper::formatBillNumberFromId($billId);
-            Database::run(
-                'UPDATE bills SET bill_number = ? WHERE id = ?',
-                [$billNumber, $billId]
-            );
+            $isGuestHouseUpdate = $order['order_type'] === 'guest_house' && $existingBill;
 
-            // Update order status & totals
-            Database::run(
-                "UPDATE orders
-                 SET status = 'billed',
-                     discount_amount = ?,
-                     tax_amount      = ?,
-                     grand_total     = ?
-                 WHERE id = ?",
-                [
-                    $totals['discount_amount'],
-                    $totals['tax_amount'],
-                    $totals['grand_total'],
-                    $orderId,
-                ]
-            );
+            if ($existingBill && !$isGuestHouseUpdate) {
+                Database::rollback();
+                Response::error('Bill already exists for this order.', 409);
+            }
 
-            // Free the table (if dine-in)
-            if ($order['table_id']) {
+            if ($isGuestHouseUpdate) {
+                // Guest house: refresh same bill when items/totals change (order stays running)
                 Database::run(
-                    "UPDATE restaurant_tables SET status = 'available', current_order_id = NULL WHERE id = ?",
-                    [$order['table_id']]
+                    'UPDATE bills
+                     SET subtotal = ?, discount_amount = ?, tax_amount = ?,
+                         commission_amount = ?, grand_total = ?,
+                         payment_mode = ?, payment_status = ?, paid_at = ?,
+                         bill_notes = COALESCE(?, bill_notes)
+                     WHERE order_id = ?',
+                    [
+                        $totals['subtotal'],
+                        $totals['discount_amount'],
+                        $totals['tax_amount'],
+                        $totals['commission_amount'],
+                        $totals['grand_total'],
+                        $paymentMode,
+                        $paymentStatus,
+                        $paidAt,
+                        $req->bodyStr('bill_notes') ?: null,
+                        $orderId,
+                    ]
                 );
+                $billNumber = $existingBill['bill_number'];
+            } else {
+                $tempBillNumber = Helper::generateBillNumber();
+
+                Database::run(
+                    'INSERT INTO bills
+                     (bill_number, order_id, subtotal, discount_amount, tax_amount,
+                      commission_amount, grand_total, payment_mode, payment_status,
+                      paid_at, bill_notes, created_by)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                    [
+                        $tempBillNumber,
+                        $orderId,
+                        $totals['subtotal'],
+                        $totals['discount_amount'],
+                        $totals['tax_amount'],
+                        $totals['commission_amount'],
+                        $totals['grand_total'],
+                        $paymentMode,
+                        $paymentStatus,
+                        $paidAt,
+                        $req->bodyStr('bill_notes') ?: null,
+                        $payload['admin_id'],
+                    ]
+                );
+
+                $billId = (int) Database::lastId();
+                $billNumber = Helper::formatBillNumberFromId($billId);
+                Database::run(
+                    'UPDATE bills SET bill_number = ? WHERE id = ?',
+                    [$billNumber, $billId]
+                );
+            }
+
+            // Update order — guest house stays running so more items/KOT can be added
+            if ($order['order_type'] === 'guest_house') {
+                Database::run(
+                    "UPDATE orders
+                     SET discount_amount = ?,
+                         tax_amount      = ?,
+                         grand_total     = ?
+                     WHERE id = ?",
+                    [
+                        $totals['discount_amount'],
+                        $totals['tax_amount'],
+                        $totals['grand_total'],
+                        $orderId,
+                    ]
+                );
+            } else {
+                Database::run(
+                    "UPDATE orders
+                     SET status = 'billed',
+                         discount_amount = ?,
+                         tax_amount      = ?,
+                         grand_total     = ?
+                     WHERE id = ?",
+                    [
+                        $totals['discount_amount'],
+                        $totals['tax_amount'],
+                        $totals['grand_total'],
+                        $orderId,
+                    ]
+                );
+
+                // Free the table (dine-in only)
+                if ($order['table_id']) {
+                    Database::run(
+                        "UPDATE restaurant_tables SET status = 'available', current_order_id = NULL WHERE id = ?",
+                        [$order['table_id']]
+                    );
+                }
             }
 
             Database::commit();
@@ -115,14 +170,22 @@ class BillingController
         }
 
         Helper::log(
-            $payload['admin_id'], 'generate_bill', 'billing', $orderId,
-            "Bill {$billNumber} generated for order #{$order['order_number']}"
+            $payload['admin_id'],
+            $isGuestHouseUpdate ? 'update_bill' : 'generate_bill',
+            'billing',
+            $orderId,
+            ($isGuestHouseUpdate ? 'Bill updated' : 'Bill generated') . " {$billNumber} for order #{$order['order_number']}"
         );
 
-        Response::created(
-            $this->getBillDetail($billNumber),
-            'Bill generated successfully.'
-        );
+        $bill = $this->getBillDetail($billNumber);
+        $bill['settings'] = Helper::allSettings();
+        $bill['updated']    = $isGuestHouseUpdate;
+
+        if ($isGuestHouseUpdate) {
+            Response::success($bill, 'Bill updated successfully.');
+        } else {
+            Response::created($bill, 'Bill generated successfully.');
+        }
     }
 
     public function markAsPaid(Request $req, string $billNumber): never

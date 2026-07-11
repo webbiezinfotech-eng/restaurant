@@ -30,6 +30,16 @@ class Helper
         return $prefix . str_pad((string)$billId, 6, '0', STR_PAD_LEFT);
     }
 
+    /** Last numeric digits — BILL000020 → 20 */
+    public static function shortDocNumber(string $numStr): string
+    {
+        if (preg_match('/(\d+)$/', $numStr, $m)) {
+            $n = ltrim($m[1], '0');
+            return $n !== '' ? $n : $m[1];
+        }
+        return $numStr;
+    }
+
     // ---- Settings ----
 
     public static function setting(string $key, mixed $default = null): mixed

@@ -333,11 +333,14 @@ INSERT INTO `settings` (`setting_key`, `setting_value`, `setting_group`, `label`
 ('business_address',      '123 Main Street, City, State - 400001',   'general', 'Address',                            'textarea', 2),
 ('business_phone',        '+91 98765 43210',                         'general', 'Contact Number',                     'text',     3),
 ('currency_symbol',       '₹',                                       'general', 'Currency Symbol',                    'text',     4),
-('bill_footer_text',      'Thank you for dining with us!',           'general', 'Bill Footer Text',                   'textarea', 5),
+('bill_footer_text',      'Thank you for your order!',               'general', 'Bill Footer Text',                   'textarea', 5),
 ('guest_house_commission','10.00',  'billing', 'Guest House Commission (%)',            'number',   1),
 ('tax_percentage',        '0.00',   'billing', 'Tax Percentage (%)',                   'number',   2),
 ('bill_prefix',           'BILL',   'billing', 'Bill Number Prefix',                   'text',     3),
-('order_prefix',          'ORD',    'billing', 'Order Number Prefix',                  'text',     4);
+('order_prefix',          'ORD',    'billing', 'Order Number Prefix',                  'text',     4),
+('printer_enabled',       '1',              'printer', 'Enable Direct Print (1=yes)',  'text',     1),
+('printer_ip',            '192.168.0.101',  'printer', 'Thermal Printer IP',           'text',     2),
+('printer_port',          '9100',           'printer', 'Printer Port (usually 9100)',  'number',   3);
 
 -- Tables 1–10
 INSERT INTO `restaurant_tables` (`table_number`, `label`, `capacity`) VALUES
