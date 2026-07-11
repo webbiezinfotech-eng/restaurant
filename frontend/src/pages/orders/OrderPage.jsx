@@ -7,8 +7,7 @@ import Spinner from '../../components/ui/Spinner'
 import ConfirmModal from '../../components/ui/ConfirmModal'
 import Modal from '../../components/ui/Modal'
 import toast from 'react-hot-toast'
-// import { printBill } from "../../utils/print";
-import { qzPrint } from "../../utils/qzPrint";
+import { openBillPrint, printKOT, directPrint, isAndroidDevice, checkCleanter } from '../../utils/thermalPrint'
 
 export default function OrderPage() {
   const { type, id } = useParams()
@@ -181,6 +180,7 @@ export default function OrderPage() {
   // }
 
 const handleGenerateBill = async () => {
+  const printWin = window.open('about:blank', '_blank', 'width=450,height=750')
   setActionLoading(true)
 
   try {
@@ -190,119 +190,76 @@ const handleGenerateBill = async () => {
       discount_amount: parseFloat(discount) || 0,
     })
 
-    // 🔥 YAH MAIN KAAM HAI (DONO PRINT)
-    // await printBill(order, "kot")   // kitchen print
-    // await printBill(order, "bill")  // customer bill
+    const billNum = r.data.data.bill_number
 
-await qzPrint(order, "kot")
-await qzPrint(order, "bill")
+    // Android POS: try direct print to built-in thermal printer
+    if (isAndroidDevice()) {
+      const cleanter = await checkCleanter()
+      if (cleanter.ok) {
+        try {
+          const billRes = await billingAPI.show(billNum)
+          const printResult = await directPrint({
+            type: 'bill',
+            bill: billRes.data.data,
+            settings: billRes.data.data.settings || {},
+          })
+          if (printResult.ok) {
+            toast.success('Bill generated & printed!')
+            if (order?.order_type === 'guest_house') {
+              await loadOrder(order.id)
+              navigate(`/orders/${order.id}`)
+            } else {
+              navigate(`/bills/${billNum}`)
+            }
+            return
+          }
+        } catch { /* fall through to print page */ }
+      }
+    }
 
-    toast.success('Bill generated!')
-    navigate(`/bills/${r.data.data.bill_number}`)
+    if (printWin && !printWin.closed) {
+      printWin.location.href = `/print/bill/${encodeURIComponent(billNum)}`
+    } else if (!openBillPrint(billNum)) {
+      toast.error('Popup blocked — browser settings mein allow karo.')
+    }
+
+    toast.success(
+      r.data.data?.updated
+        ? 'Bill updated! Print page khuli — PRINT button dabao.'
+        : order?.order_type === 'guest_house'
+          ? 'Bill generated! Add more items or KOT print kar sakte ho.'
+          : 'Bill generated! Print page khuli — PRINT button dabao.'
+    )
+    if (order?.order_type === 'guest_house') {
+      await loadOrder(order.id)
+      navigate(`/orders/${order.id}`)
+    } else {
+      navigate(`/bills/${billNum}`)
+    }
 
   } catch(e) { 
+    try { printWin?.close() } catch { /* ignore */ }
     toast.error(e.response?.data?.message || 'Failed.') 
   } finally { 
-    setActionLoading(false); 
+    setActionLoading(false)
     setBillModal(false) 
   }
 }
 
-  const handleQtPrint = () => {
+  const handleQtPrint = async () => {
     if (!order?.items?.length) {
-      toast.error('Add items before printing QT.')
+      toast.error('Add items before printing KOT.')
       return
     }
-    const when = new Date().toLocaleString('en-IN', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    })
-    const placeLabel = order?.order_type === 'dine_in'
-      ? 'RESTAURANT (DINE IN)'
-      : (order?.guest_address || 'GUEST HOUSE')
-    const locationLabel = order?.order_type === 'dine_in'
-      ? `TABLE NO: ${order?.table_number || order?.table_label || '-'}`
-      : `ROOM NO: ${order?.guest_room || '-'}`
-    const rows = order.items.map(item => `
-      <tr>
-        <td>${String(item.item_name || '').toUpperCase()}</td>
-        <td style="text-align:right;">${item.quantity}</td>
-      </tr>
-    `).join('')
-
-    const returnUrl = window.location.href
-    const orderDisplayNumber = order?.order_number || String(order?.id || '-')
-
-    const html = `
-      <!doctype html>
-      <html>
-      <head>
-        <meta charset="utf-8" />
-        <title>QT Print</title>
-        <style>
-          body{font-family: monospace; margin:0; padding:10px; width:72mm;}
-          .center{text-align:center;}
-          .line{border-top:1px dashed #000; margin:8px 0;}
-          table{width:100%; border-collapse:collapse; font-size:12px;}
-          th,td{padding:3px 0; vertical-align:top;}
-          th{text-align:left; border-bottom:1px dashed #000;}
-          .meta{font-size:12px; margin:4px 0;}
-          .total{font-weight:700; text-align:center; margin-top:10px;}
-          @media print { body{width:72mm;} }
-        </style>
-      </head>
-      <body>
-        <div class="center"><strong>ORDER NO: ${orderDisplayNumber}</strong></div>
-        <div class="line"></div>
-        <div class="meta">DATE: ${when}</div>
-        <div class="meta">PLACE: ${placeLabel}</div>
-        <div class="meta">${locationLabel}</div>
-        <div class="line"></div>
-        <table>
-          <thead><tr><th>ITEM</th><th style="text-align:right;">QTY</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-        <div class="line"></div>
-        <div class="total">TOTAL ITEMS: ${order.items.length}</div>
-        <script>
-          (function () {
-            var done = false
-            function finish() {
-              if (done) return
-              done = true
-              try {
-                if (window.opener && !window.opener.closed) {
-                  window.opener.focus()
-                }
-              } catch (e) {}
-              try { window.close() } catch (e) {}
-              setTimeout(function () {
-                if (!window.closed) {
-                  window.location.replace(${JSON.stringify(returnUrl)})
-                }
-              }, 150)
-            }
-            window.onafterprint = finish
-            window.onload = function () { window.print() }
-            setTimeout(finish, 1500)
-          })()
-        </script>
-      </body>
-      </html>
-    `
-
-    const w = window.open('', '_blank', 'width=420,height=640')
-    if (!w) {
-      toast.error('Please allow popups to print QT.')
-      return
+    if (isAndroidDevice()) {
+      const result = await printKOT(order)
+      if (result.ok) {
+        toast.success(result.message || 'KOT printed!')
+        return
+      }
     }
-    w.document.open()
-    w.document.write(html)
-    w.document.close()
+    const w = window.open(`/print/kot/${order.id}`, '_blank', 'width=450,height=750')
+    if (!w) toast.error('Popup blocked — browser settings mein allow karo.')
   }
 
   const handleCancel = async () => {
@@ -560,7 +517,7 @@ await qzPrint(order, "bill")
           <div className="px-4 py-3 border-t border-surface-100">
             <div className="grid grid-cols-2 gap-2">
               <button onClick={handleQtPrint} className="btn-secondary btn justify-center btn-lg">
-                QT Print
+                KOT Print
               </button>
               <button onClick={() => setBillModal(true)} className="btn-primary btn justify-center btn-lg">
                 Generate Bill
@@ -569,8 +526,8 @@ await qzPrint(order, "bill")
           </div>
         )}
         {order?.status === 'billed' && (
-          <div className="px-4 py-3 border-t border-surface-100">
-            <button onClick={() => navigate(`/bills`)} className="btn-secondary btn w-full justify-center">View Bill</button>
+          <div className="px-4 py-3 border-t border-surface-100 space-y-2">
+            <button onClick={() => navigate(`/bills`)} className="btn-secondary btn w-full justify-center">View Bills</button>
           </div>
         )}
       </div>

@@ -12,6 +12,10 @@ import Categories from './pages/menu/Categories'
 import MenuItems from './pages/menu/MenuItems'
 import Reports from './pages/reports/Reports'
 import Settings from './pages/settings/Settings'
+import PrintTest from './pages/settings/PrintTest'
+import PrintBillPage from './pages/print/PrintBillPage'
+import PrintKOTPage from './pages/print/PrintKOTPage'
+import PrintTestPage from './pages/print/PrintTestPage'
 import GuestHouse from './pages/guesthouse/GuestHouse'
 
 function PrivateRoute({ children }) {
@@ -25,6 +29,11 @@ export default function App() {
     <AuthProvider>
       <Routes>
         <Route path="/login" element={<Login />} />
+        {/* Print pages — no sidebar, works with any printer (A4 / thermal) */}
+        <Route path="/print/bill/:billNumber" element={<PrivateRoute><PrintBillPage /></PrivateRoute>} />
+        <Route path="/print/kot/:orderId" element={<PrivateRoute><PrintKOTPage /></PrivateRoute>} />
+        <Route path="/print/test/bill" element={<PrivateRoute><PrintTestPage type="bill" /></PrivateRoute>} />
+        <Route path="/print/test/kot" element={<PrivateRoute><PrintTestPage type="kot" /></PrivateRoute>} />
         <Route path="/" element={<PrivateRoute><AppLayout /></PrivateRoute>}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
@@ -39,6 +48,7 @@ export default function App() {
           <Route path="reports" element={<Reports />} />
           <Route path="guest-house" element={<GuestHouse />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="settings/print-test" element={<PrintTest />} />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

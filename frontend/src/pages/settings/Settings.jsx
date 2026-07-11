@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { settingsAPI } from '../../services/api'
 import Spinner from '../../components/ui/Spinner'
 import toast from 'react-hot-toast'
@@ -37,10 +38,37 @@ export default function Settings() {
     <div className="max-w-4xl">
       <div className="page-header">
         <h1 className="page-title">Settings</h1>
-        <button onClick={handleSave} className="btn-primary btn btn-lg" disabled={saving}>{saving ? 'Saving…' : 'Save Settings'}</button>
+        <div className="flex flex-wrap gap-2">
+          <Link to="/settings/print-test" className="btn-secondary btn">🖨 Printer Test</Link>
+          <button onClick={handleSave} className="btn-primary btn btn-lg" disabled={saving}>{saving ? 'Saving…' : 'Save Settings'}</button>
+        </div>
       </div>
 
-      {Object.entries(groups).map(([group, items]) => (
+      <div className="card p-5 mb-5 border-brand-200 bg-brand-50/50">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <p className="font-semibold text-surface-900">Thermal printer test</p>
+            <p className="text-sm text-surface-600 mt-0.5">Client ko ye page bhej kar bina order ke print verify karwa sakte ho.</p>
+          </div>
+          <Link to="/settings/print-test" className="btn-primary btn shrink-0 justify-center">Open Printer Test →</Link>
+        </div>
+      </div>
+
+      <div className="card p-5 mb-5 border-brand-200 bg-brand-50/50">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <p className="font-semibold text-surface-900">Printer Test</p>
+            <p className="text-sm text-surface-600 mt-0.5">A4 ya thermal — koi bhi printer. Test karke dekho.</p>
+          </div>
+          <Link to="/settings/print-test" className="btn-primary btn shrink-0 justify-center">Test Print →</Link>
+        </div>
+      </div>
+
+      {Object.entries(groups).sort(([a], [b]) => {
+        if (a === 'printer') return -1
+        if (b === 'printer') return 1
+        return 0
+      }).map(([group, items]) => (
         <div key={group} className="card p-6 mb-5">
           <h2 className="font-display font-bold text-surface-900 text-lg mb-4 capitalize">{group} Settings</h2>
           <div className="space-y-4">

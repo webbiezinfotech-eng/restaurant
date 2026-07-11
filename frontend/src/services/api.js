@@ -37,6 +37,11 @@ export const orderAPI     = { list: p => api.get("/orders",{params:p}), show: id
 export const billingAPI   = { generateBill: (id,d) => api.post(`/orders/${id}/bill`,d), list: p => api.get("/bills",{params:p}), show: num => api.get(`/bills/${num}`), markPaid: (num,d) => api.post(`/bills/${num}/mark-paid`, d), updatePaymentStatus: (num,d) => api.post(`/bills/${num}/payment-status`, d) }
 export const reportAPI    = { sales: p => api.get("/reports/sales",{params:p}), itemWise: p => api.get("/reports/item-wise",{params:p}), tableWise: p => api.get("/reports/table-wise",{params:p}), commission: p => api.get("/reports/commission",{params:p}), paymentMode: p => api.get("/reports/payment-mode",{params:p}) }
 export const settingsAPI  = { list: () => api.get("/settings"), update: d => api.put("/settings",d) }
+export const printAPI     = {
+  bill: d => api.post("/print/bill", d),
+  kot: d => api.post("/print/kot", d),
+  test: d => api.post("/print/test", d),
+}
 export const guestHouseAPI = {
   dashboard: () => api.get("/guest-house/dashboard"),
   rooms: () => api.get("/guest-house/rooms"),

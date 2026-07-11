@@ -39,7 +39,7 @@ export default function AppLayout() {
 
       {/* Sidebar */}
       <aside
-        className={`fixed z-40 inset-y-0 left-0 w-72 max-w-[85vw] flex-shrink-0 bg-white border-r border-surface-200 flex flex-col transform transition-transform duration-200 lg:static lg:w-64 lg:max-w-none ${
+        className={`no-print fixed z-40 inset-y-0 left-0 w-72 max-w-[85vw] flex-shrink-0 bg-white border-r border-surface-200 flex flex-col transform transition-transform duration-200 lg:static lg:w-64 lg:max-w-none ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
@@ -87,7 +87,7 @@ export default function AppLayout() {
 
       {/* Main content */}
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
-        <header className="lg:hidden h-14 border-b border-surface-200 bg-white flex items-center justify-between px-4">
+        <header className="no-print lg:hidden h-14 border-b border-surface-200 bg-white flex items-center justify-between px-4">
           <button className="btn-secondary btn btn-sm" onClick={() => setSidebarOpen(true)}>☰ Menu</button>
           <p className="font-display text-surface-900 font-semibold">Restaurant Manager</p>
         </header>

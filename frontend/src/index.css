@@ -3,14 +3,20 @@
 @tailwind utilities;
 
 @media print {
+  @page {
+    size: 72mm auto;
+    margin: 0;
+  }
+
   body {
-    width: 80mm;
+    width: 72mm;
+    max-width: 72mm;
     margin: 0;
     padding: 0;
   }
 
   .no-print {
-    display: none;
+    display: none !important;
   }
 }
 
